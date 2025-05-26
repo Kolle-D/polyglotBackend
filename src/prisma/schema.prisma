@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  LEARNER
+  TUTOR  
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum LessonType {
+  TEXT
+  VIDEO
+  AUDIO
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      UserRole @default(LEARNER)
+  avatar    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tutorProfile Tutor?
+  bookingsAsTutor Booking[] @relation("TutorBookings")
+  bookingsAsLearner Booking[] @relation("LearnerBookings")
+
+  @@map("users")
+}
+
+model Language {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+  country     String
+  imageUrl    String?
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  lessons Lesson[]
+  tutors  TutorLanguage[]
+
+  @@map("languages")
+}
+
+model Lesson {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  content     String?    // For text lessons
+  mediaUrl    String?    // For video/audio lessons
+  type        LessonType @default(TEXT)
+  duration    Int?       // in minutes
+  level       String     @default("Beginner") // Beginner, Intermediate, Advanced
+  isPublished Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  languageId String
+  language   Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@map("lessons")
+}
+
+model Tutor {
+  id           String  @id @default(cuid())
+  bio          String?
+  experience   String?
+  hourlyRate   Float?
+  isVerified   Boolean @default(false)
+  isAvailable  Boolean @default(true)
+  totalRating  Float   @default(0)
+  reviewCount  Int     @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  userId    String @unique
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  languages TutorLanguage[]
+  bookings  Booking[] @relation("TutorBookings")
+
+  @@map("tutors")
+}
+
+model TutorLanguage {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+
+  // Relations
+  tutorId    String
+  tutor      Tutor    @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  languageId String
+  language   Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@unique([tutorId, languageId])
+  @@map("tutor_languages")
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  scheduledAt   DateTime
+  duration      Int           @default(60) // in minutes
+  status        BookingStatus @default(PENDING)
+  notes         String?
+  meetingLink   String?
+  totalAmount   Float?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  learnerId String
+  learner   User   @relation("LearnerBookings", fields: [learnerId], references: [id], onDelete: Cascade)
+  tutorId   String
+  tutor     Tutor  @relation("TutorBookings", fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@map("bookings")
+}
